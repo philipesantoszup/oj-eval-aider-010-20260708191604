@@ -267,70 +267,25 @@ public:
     void sort() {
         if (_size <= 1) return;
         
-        node* current = head->next;
-        node* last = head->prev;
-        
-        // Detach nodes to form a linear chain for merge sort
-        node* start = current;
-        while (current != head) {
-            node* next = current->next;
-            current->next = nullptr;
-            current = next;
+        T* temp = new T[_size];
+        size_t idx = 0;
+        node* curr = head->next;
+        while (curr != head) {
+            temp[idx++] = curr->value;
+            curr = curr->next;
         }
 
-        auto merge_nodes = [](node* l1, node* l2) {
-            node dummy;
-            node* tail = &dummy;
-            while (l1 && l2) {
-                if (l1->value < l2->value) {
-                    tail->next = l1;
-                    l1 = l1->next;
-                } else {
-                    tail->next = l2;
-                    l2 = l2->next;
-                }
-                tail = tail->next;
-            }
-            tail->next = l1 ? l1 : l2;
-            while (tail->next) tail = tail->next;
-            return std::make_pair(dummy.next, tail);
-        };
+        sjtu::sort<T>(temp, temp + _size, [](const T& a, const T& b) {
+            return a < b;
+        });
 
-        auto sort_nodes = [&](auto self, node* s, int n) -> node* {
-            if (n <= 1) return s;
-            int mid = n / 2;
-            node* left = s;
-            node* right = s;
-            for (int i = 0; i < mid; ++i) right = right->next;
-            
-            // Split the list
-            node* prev = nullptr;
-            node* curr = s;
-            for (int i = 0; i < mid; ++i) {
-                prev = curr;
-                curr = curr->next;
-            }
-            if (prev) prev->next = nullptr;
-
-            node* sorted_left = self(self, left, mid);
-            node* sorted_right = self(self, curr, n - mid);
-
-            auto merged = merge_nodes(sorted_left, sorted_right);
-            return merged.first;
-        };
-
-        node* sorted_head = sort_nodes(sort_nodes, start, _size);
-        
-        // Re-attach to sentinel
-        head->next = sorted_head;
-        sorted_head->prev = head;
-        node* curr_node = sorted_head;
-        while (curr_node->next) {
-            curr_node->next->prev = curr_node;
-            curr_node = curr_node->next;
+        idx = 0;
+        curr = head->next;
+        while (curr != head) {
+            curr->value = temp[idx++];
+            curr = curr->next;
         }
-        curr_node->next = head;
-        head->prev = curr_node;
+        delete[] temp;
     }
 
     void merge(list &other) {
@@ -355,7 +310,7 @@ public:
         node *other_curr = other.head->next;
 
         while (other_curr != other.head) {
-            if (this_curr == head || !(other_curr->value < this_curr->value)) {
+            if (this_curr == head || (this_curr->value < other_curr->value || !(other_curr->value < this_curr->value))) {
                 if (this_curr != head) this_curr = this_curr->next;
                 if (this_curr == head) break;
             } else {
