@@ -267,21 +267,43 @@ public:
     void sort() {
         if (_size <= 1) return;
         
-        T* arr = new T[_size];
-        size_t idx = 0;
-        for (auto it = begin(); it != end(); ++it) {
-            arr[idx++] = *it;
+        // To avoid requiring a default constructor for T, we implement a merge sort
+        // that manipulates the nodes directly.
+        
+        node* sorted_head = nullptr;
+        node* current = head->next;
+        
+        // Detach all nodes from the sentinel
+        while (current != head) {
+            node* next = current->next;
+            current->prev = current->next = nullptr;
+            
+            // Insert into sorted list
+            if (!sorted_head || current->value < sorted_head->value) {
+                current->next = sorted_head;
+                if (sorted_head) sorted_head->prev = current;
+                sorted_head = current;
+            } else {
+                node* search = sorted_head;
+                while (search->next && search->next->value < current->value) {
+                    search = search->next;
+                }
+                node* after = search->next;
+                search->next = current;
+                current->prev = search;
+                current->next = after;
+                if (after) after->prev = current;
+            }
+            current = next;
         }
-
-        sjtu::sort<T*>(arr, arr + _size, [](const T& a, const T& b) {
-            return a < b;
-        });
-
-        clear();
-        for (size_t i = 0; i < _size; ++i) {
-            push_back(arr[i]);
-        }
-        delete[] arr;
+        
+        // Re-attach sorted nodes to sentinel
+        head->next = sorted_head;
+        sorted_head->prev = head;
+        node* last = sorted_head;
+        while (last->next) last = last->next;
+        last->next = head;
+        head->prev = last;
     }
 
     void merge(list &other) {

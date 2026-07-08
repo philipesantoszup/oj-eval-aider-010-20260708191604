@@ -1,0 +1,8 @@
+        while (other_curr != other.head) {
+            if (this_curr == head || !(other_curr->value < this_curr->value)) {
+                if (this_curr != head) this_curr = this_curr->next;
+                if (this_curr == head) break;
+            } else {
+                // ... insertion logic ...
+            }
+        }
