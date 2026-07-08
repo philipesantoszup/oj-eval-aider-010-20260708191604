@@ -30,23 +30,6 @@ protected:
     node *head; // Sentinel node
     size_t _size;
 
-    node *insert_node(node *pos, node *cur) {
-        node *prev_node = pos->prev;
-        cur->next = pos;
-        cur->prev = prev_node;
-        if (prev_node) prev_node->next = cur;
-        pos->prev = cur;
-        return cur;
-    }
-
-    node *erase_node(node *pos) {
-        node *prev_node = pos->prev;
-        node *next_node = pos->next;
-        if (prev_node) prev_node->next = next_node;
-        if (next_node) next_node->prev = prev_node;
-        return next_node;
-    }
-
 public:
     class iterator {
     private:
@@ -210,13 +193,15 @@ public:
 
     virtual iterator insert(iterator pos, const T &value) {
         if (pos.list_ptr != this) throw invalid_iterator();
-        node *newNode = new node(value);
         node *p = pos.ptr;
+        if (p == nullptr) throw invalid_iterator();
         
+        node *newNode = new node(value);
         node *prev_node = p->prev;
+        
         newNode->next = p;
         newNode->prev = prev_node;
-        if (prev_node) prev_node->next = newNode;
+        prev_node->next = newNode;
         p->prev = newNode;
         
         _size++;
@@ -225,8 +210,7 @@ public:
 
     virtual iterator erase(iterator pos) {
         if (pos.list_ptr != this) throw invalid_iterator();
-        if (empty()) throw container_is_empty();
-        if (pos.ptr == head) throw invalid_iterator();
+        if (pos.ptr == nullptr || pos.ptr == head) throw invalid_iterator();
 
         node *p = pos.ptr;
         node *prev_node = p->prev;
@@ -283,19 +267,16 @@ public:
     void sort() {
         if (_size <= 1) return;
         
-        // Copy to array
         T* arr = new T[_size];
         size_t idx = 0;
         for (auto it = begin(); it != end(); ++it) {
             arr[idx++] = *it;
         }
 
-        // Use sjtu::sort
         sjtu::sort<T*>(arr, arr + _size, [](const T& a, const T& b) {
             return a < b;
         });
 
-        // Rebuild list
         clear();
         for (size_t i = 0; i < _size; ++i) {
             push_back(arr[i]);
@@ -306,80 +287,32 @@ public:
     void merge(list &other) {
         if (other.empty()) return;
         if (empty()) {
-            // Move all nodes from other to this
-            node *o_head = other.head;
-            node *first = o_head->next;
-            node *last = o_head->prev;
+            node *o_first = other.head->next;
+            node *o_last = other.head->prev;
             
-            head->next = first;
-            first->prev = head;
-            head->prev = last;
-            last->next = head;
+            head->next = o_first;
+            o_first->prev = head;
+            head->prev = o_last;
+            o_last->next = head;
             
             _size = other._size;
-            
-            // Reset other
             other.head->next = other.head;
             other.head->prev = other.head;
             other._size = 0;
             return;
         }
 
-        node *curr = head->next;
-        node *o_curr = other.head->next;
-
-        while (o_curr != other.head) {
-            if (curr == head || curr->value < o_curr->value || !(o_curr->value < curr->value)) {
-                // curr is smaller or equal, move curr
-                if (curr != head) curr = curr->next;
-            } else {
-                // o_curr is smaller, insert o_curr before curr
-                node *next_o = o_curr->next;
-                
-                node *prev_node = curr->prev;
-                o_curr->next = curr;
-                o_curr->prev = prev_node;
-                prev_node->next = o_curr;
-                curr->prev = o_curr;
-                
-                _size++;
-                o_curr = next_o;
-            }
-            if (curr == head) curr = head->next;
-        }
-
-        // Detach other's nodes
-        node *o_head = other.head;
-        node *nodes_to_delete = o_head->next;
-        while (nodes_to_delete != o_head) {
-            node *tmp = nodes_to_delete;
-            nodes_to_delete = nodes_to_delete->next;
-            // We need to remove them from the list we just merged into
-            // Actually, the logic above inserts them. 
-            // Wait, the logic above only inserts if o_curr < curr.
-            // If o_curr is the smallest, it's inserted.
-            // But we need to move ALL nodes from other.
-        }
-        // Let's rewrite merge to be cleaner.
-    }
-
-    // Redoing merge to properly handle pointer manipulation without copying
-    void merge_fixed(list &other) {
-        if (other.empty()) return;
-        
         node *this_curr = head->next;
         node *other_curr = other.head->next;
-        
+
         while (other_curr != other.head) {
             if (this_curr == head || !(other_curr->value < this_curr->value)) {
-                // this_curr is smaller or equal, move forward
                 if (this_curr != head) this_curr = this_curr->next;
-                if (this_curr == head) break; // reached end of this list
+                if (this_curr == head) break;
             } else {
-                // other_curr is smaller, splice it in
                 node *next_other = other_curr->next;
-                
                 node *prev_node = this_curr->prev;
+                
                 other_curr->next = this_curr;
                 other_curr->prev = prev_node;
                 prev_node->next = other_curr;
@@ -390,7 +323,6 @@ public:
             }
         }
         
-        // If other still has nodes, append them to the end
         if (other_curr != other.head) {
             node *this_last = head->prev;
             node *other_first = other_curr;
@@ -401,7 +333,6 @@ public:
             other_last->next = head;
             head->prev = other_last;
             
-            // Calculate how many were appended
             size_t count = 0;
             node *tmp = other_first;
             while (tmp != other.head) {
@@ -411,7 +342,6 @@ public:
             _size += count;
         }
         
-        // Clear other
         other.head->next = other.head;
         other.head->prev = other.head;
         other._size = 0;
@@ -426,13 +356,10 @@ public:
             curr->prev = tmp;
             curr = tmp;
         }
-        node *old_head_next = head->next;
-        node *old_head_prev = head->prev;
-        head->next = old_head_prev;
-        head->prev->next = head; // This is wrong.
-        // Correct sentinel update:
-        head->next = old_head_prev;
-        head->prev = old_head_next;
+        node *old_first = head->next;
+        node *old_last = head->prev;
+        head->next = old_last;
+        head->prev = old_first;
         head->next->prev = head;
         head->prev->next = head;
     }
@@ -453,9 +380,6 @@ public:
         }
     }
 };
-
-// Overriding the merge and reverse in the class definition above was a bit messy, 
-// I will provide the final clean version of the class.
 }
 
 #endif //SJTU_LIST_HPP
