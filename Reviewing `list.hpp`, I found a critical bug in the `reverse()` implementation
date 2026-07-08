@@ -1,0 +1,16 @@
+    void reverse() {
+        if (_size <= 1) return;
+        node *curr = head->next;
+        while (curr != head) {
+            node *tmp = curr->next;
+            curr->next = curr->prev;
+            curr->prev = tmp;
+            curr = tmp;
+        }
+        node *old_first = head->next;
+        node *old_last = head->prev;
+        head->next = old_last;
+        head->prev = old_first;
+        head->next->prev = head;
+        head->prev->next = head;
+    }

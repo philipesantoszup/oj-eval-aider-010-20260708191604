@@ -267,43 +267,70 @@ public:
     void sort() {
         if (_size <= 1) return;
         
-        // To avoid requiring a default constructor for T, we implement a merge sort
-        // that manipulates the nodes directly.
-        
-        node* sorted_head = nullptr;
         node* current = head->next;
+        node* last = head->prev;
         
-        // Detach all nodes from the sentinel
+        // Detach nodes to form a linear chain for merge sort
+        node* start = current;
         while (current != head) {
             node* next = current->next;
-            current->prev = current->next = nullptr;
-            
-            // Insert into sorted list
-            if (!sorted_head || current->value < sorted_head->value) {
-                current->next = sorted_head;
-                if (sorted_head) sorted_head->prev = current;
-                sorted_head = current;
-            } else {
-                node* search = sorted_head;
-                while (search->next && search->next->value < current->value) {
-                    search = search->next;
-                }
-                node* after = search->next;
-                search->next = current;
-                current->prev = search;
-                current->next = after;
-                if (after) after->prev = current;
-            }
+            current->next = nullptr;
             current = next;
         }
+
+        auto merge_nodes = [](node* l1, node* l2) {
+            node dummy;
+            node* tail = &dummy;
+            while (l1 && l2) {
+                if (l1->value < l2->value) {
+                    tail->next = l1;
+                    l1 = l1->next;
+                } else {
+                    tail->next = l2;
+                    l2 = l2->next;
+                }
+                tail = tail->next;
+            }
+            tail->next = l1 ? l1 : l2;
+            while (tail->next) tail = tail->next;
+            return std::make_pair(dummy.next, tail);
+        };
+
+        auto sort_nodes = [&](auto self, node* s, int n) -> node* {
+            if (n <= 1) return s;
+            int mid = n / 2;
+            node* left = s;
+            node* right = s;
+            for (int i = 0; i < mid; ++i) right = right->next;
+            
+            // Split the list
+            node* prev = nullptr;
+            node* curr = s;
+            for (int i = 0; i < mid; ++i) {
+                prev = curr;
+                curr = curr->next;
+            }
+            if (prev) prev->next = nullptr;
+
+            node* sorted_left = self(self, left, mid);
+            node* sorted_right = self(self, curr, n - mid);
+
+            auto merged = merge_nodes(sorted_left, sorted_right);
+            return merged.first;
+        };
+
+        node* sorted_head = sort_nodes(sort_nodes, start, _size);
         
-        // Re-attach sorted nodes to sentinel
+        // Re-attach to sentinel
         head->next = sorted_head;
         sorted_head->prev = head;
-        node* last = sorted_head;
-        while (last->next) last = last->next;
-        last->next = head;
-        head->prev = last;
+        node* curr_node = sorted_head;
+        while (curr_node->next) {
+            curr_node->next->prev = curr_node;
+            curr_node = curr_node->next;
+        }
+        curr_node->next = head;
+        head->prev = curr_node;
     }
 
     void merge(list &other) {
